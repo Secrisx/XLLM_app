@@ -4,6 +4,10 @@ import os
 from sentence_transformers import SentenceTransformer
 from langchain.chat_models import init_chat_model
 from langchain.schema import HumanMessage, AIMessage
+from dotenv import load_dotenv
+
+#Load environment variables
+load_dotenv()
 
 # Define available models
 MODELS = {
@@ -33,7 +37,8 @@ def load_embedding_model():
 @st.cache_resource
 def load_llm():
     # Set OpenAI API key
-    os.environ["OPENAI_API_KEY"] = "sk-proj-faQBM6cwl0dXTlf9XuEvT3BlbkFJPdna1ZJ9ICQNYysA5YQQ"
+    openai_key = os.getenv("OPENAI_API_KEY")
+    os.environ["OPENAI_API_KEY"] = openai_key
     return init_chat_model("gpt-4o-mini", model_provider="openai")
 
 # Functions to retrieve context from the database
