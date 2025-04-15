@@ -84,44 +84,44 @@ def retrieved_context(user_query, cursor, embedding_model, selected_models=None)
            
     retrieved_context = "Transformer Data:\n" + "\n".join(
         [f"Model: {model_name.upper()}, Layer: {layer}, Head: {head}, Words: {words[:1000]}" 
-         for model_name, layer, head, words, _ in results_transformer[:5]]
+         for model_name, layer, head, words, _ in results_transformer[:7]]
     )
     
     retrieved_context += "\n\nFFN Data:\n" + "\n".join(
         [f"Model: {model_name.upper()}, Layer: {layer}, Score: {score}, Word: {word[:1000]}" 
-         for model_name, layer, score, word, _ in results_ffn[:5]]
+         for model_name, layer, score, word, _ in results_ffn[:7]]
     )
 
     return retrieved_context
 
 def generate_response(user_query, llm, cursor, embedding_model, selected_models, chat_history):
-    # Model keywords for detection
     model_keywords = {
         "gpt2": ["gpt2", "gpt-2", "gpt 2", "gpt2 model"],
         "opt": ["opt", "opt model", "opt-model", "the opt", "facebook opt", "meta opt"],
         "pythia": ["pythia", "pythia model"]
     }
-
-    # Check if user is trying to select specific models
-    if user_query.lower().startswith("use model"):
-        model_names = [m.strip().lower() for m in user_query[10:].split(",")]
-        valid_models = [name for name in MODELS.keys() if any(keyword in model_names for keyword in model_keywords[name])]
-        
-        if valid_models:
-            return f"Now using models: {', '.join([name.upper() for name in valid_models])}", valid_models
-        else:
-            return f"Invalid model selection. Available models: {', '.join(MODELS.keys())}", selected_models
     
-    # Check if specific models are mentioned in the query
-    mentioned_models = [model for model in MODELS.keys() 
+    try:
+        mentioned_models = [model for model in MODELS.keys() 
                         if any(keyword in user_query.lower() for keyword in model_keywords[model])]
-    
-    # Only change the model selection if models are mentioned
-    if mentioned_models:
-        selected_models = mentioned_models
+        
+        # Only change the model selection if models are mentioned
+        if mentioned_models:
+            selected_models = mentioned_models
+        
+        # Safety check - if we end up with no models, use all models
+        if not selected_models:
+            selected_models = list(MODELS.keys())
+    except Exception as e:
+        print(f"Error in model detection: {e}")
+        # Fall back to all models if there's an error
+        selected_models = list(MODELS.keys())
     
     # Retrieve context based on the query and selected models
     context = retrieved_context(user_query, cursor, embedding_model, selected_models)
+    
+    if context:
+        context = context.replace("{", "{{").replace("}", "}}")
     
     system_prompt = f"""
         You are an assistant which answers questions based on knowledge which is provided to you.
@@ -129,12 +129,12 @@ def generate_response(user_query, llm, cursor, embedding_model, selected_models,
 
         There are two types of explanations:
         1) Transformer-based explanations with structure [model, layer, head, word_pairs], which means 
-           that the specific attention head in the layer is particularly attuned to the relationships 
-           of the word pairs in the lists
+           that in the model, the specific attention head in the layer is particularly attuned to the 
+           relationships of the word pairs in the lists
         
         2) FFN-based explanations with structure [model, layer, score, word] which corresponds to the 
-           feed-forward network of each layer, with the words listing the most relevant terms captured 
-           by the FFN and the corresponding scores showing how strongly they align with the concept 
+           feed-forward network of each layer in the model, with the words listing the most relevant terms 
+           captured by the FFN and the corresponding scores showing how strongly they align with the concept 
            encoded in that layer.
         
         While answering, you should mainly focus on the information in the "Context" section other 
@@ -152,7 +152,7 @@ def generate_response(user_query, llm, cursor, embedding_model, selected_models,
         {context or "No relevant context found."}
         """
     
-    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+    from langchain_core.prompts.chat import  ChatPromptTemplate, MessagesPlaceholder
     
     # Create a message history from the chat_history
     messages = []
@@ -180,39 +180,24 @@ def main():
     # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = [
-            {"role": "assistant", "content": "Hello! I can help you understand how different language models (GPT-2, OPT, and Pythia) work internally. What would you like to know about their transformer or feed-forward network mechanisms?"}
+            {"role": "assistant", "content": "Hello! I can help you understand how different language models work internally. What would you like to know about their mechanisms?"}
         ]
     
     if "selected_models" not in st.session_state:
         st.session_state.selected_models = list(MODELS.keys())
     
     # Display title and description
-    st.title("🧠 X-LLM: Understanding Language Model Explanations")
+    st.title("🧠XLLM: Understanding Large Language Model Explanations")
     st.markdown("""
     This application provides insights into how different language models work internally through two explanation methods:
     * **Transformer-based explanations**: Shows which attention heads are attuned to specific word relationships
     * **FFN-based explanations**: Reveals the words and concepts captured by feed-forward networks
     
-    Available models: GPT-2, OPT, Pythia
-    
-    You can type "use model [model1], [model2]" to focus on specific models.
+    Current available models: GPT-2, OPT, Pythia
+        
+    Enjoy your explorations to the models!
     """)
     
-    # Display current model selection
-    st.sidebar.header("Selected Models")
-    st.sidebar.write(", ".join(model.upper() for model in st.session_state.selected_models))
-    
-    # Model selection via sidebar
-    st.sidebar.header("Choose Models")
-    model_selection = {}
-    for model in MODELS.keys():
-        model_selection[model] = st.sidebar.checkbox(model.upper(), 
-                                                  value=model in st.session_state.selected_models)
-    
-    # Update selected models if changed via checkboxes
-    selected_via_checkbox = [model for model, selected in model_selection.items() if selected]
-    if selected_via_checkbox and selected_via_checkbox != st.session_state.selected_models:
-        st.session_state.selected_models = selected_via_checkbox
     
     # Initialize resources
     try:
@@ -230,7 +215,7 @@ def main():
             st.markdown(message["content"])
     
     # Chat input
-    if prompt := st.chat_input("Ask about language model internal mechanisms..."):
+    if prompt := st.chat_input("Ask about model internal mechanisms..."):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
         
