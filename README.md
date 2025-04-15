@@ -35,8 +35,8 @@ X-LLM provides comprehensive explanations of how different language models (GPT-
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/X-LLM.git
-   cd X-LLM
+   git clone https://github.com/Secrisx/XLLM_app.git
+   cd XLLM_app
    ```
 
 2. Install dependencies:
@@ -49,19 +49,6 @@ X-LLM provides comprehensive explanations of how different language models (GPT-
    OPENAI_API_KEY=your_api_key_here
    ```
 
-4. Create PostgreSQL database:
-   ```bash
-   createdb xllm
-   ```
-
-### Database Schema
-
-Ensure your PostgreSQL database has the following tables for each model:
-- `[model]_transformer`: Stores transformer-based explanations
-- `[model]_ffn`: Stores FFN-based explanations
-
-Each table should include vector embeddings for semantic search.
-
 ### Running the Application
 
 Start the Streamlit app:
@@ -69,19 +56,3 @@ Start the Streamlit app:
 streamlit run app.py
 ```
 
-## Adding New Models
-
-To add a new model to the system:
-
-1. Generate explanation data for the model
-2. Create tables `[model_name]_transformer` and `[model_name]_ffn` in the database
-3. Update the `MODELS` dictionary in `app.py`
-4. Add appropriate keywords to the `model_keywords` dictionary in the `generate_response` function
-
-## Contact
-
-For questions and support, please open an issue on GitHub or contact [your-email@example.com].
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
