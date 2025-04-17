@@ -26,7 +26,7 @@ st.set_page_config(
 # Initialize connection to database
 @st.cache_resource
 def init_db():
-    return psycopg2.connect(dbname="xllm", user="postgres", host="localhost", port=5432)
+    return psycopg2.connect(dbname="xllm", user="postgres", host="lovelace.deac.wfu.edu", port=5432)
 
 # Initialize embedding model
 @st.cache_resource
