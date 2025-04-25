@@ -16,6 +16,15 @@ MODELS = {
     "pythia": 3
 }
 
+# Define preset questions
+PRESET_QUESTIONS = [
+    "How does GPT-2 understand geographical concepts?",
+    "Compare how different models process emotional words",
+    "What attention patterns exist in OPT for handling numerical information?",
+    "How does Pythia represent abstract concepts in its FFN layers?",
+    "Show differences in how models understand language syntax"
+]
+
 # Set page configuration and title
 st.set_page_config(
     page_title="X-LLM: Multi-model Explanations",
@@ -175,8 +184,24 @@ def generate_response(user_query, llm, cursor, embedding_model, selected_models,
     
     return response.content, selected_models
 
-# Main application
+# Function to handle shortcut button clicks
+def process_shortcut(question):
+    # Add the question to the session state
+    st.session_state.question_to_ask = question
+
+
+# Add custom CSS for centering content
 def main():
+    # Add custom CSS for centering the chat container
+    st.markdown("""
+    <style>
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = [
@@ -185,6 +210,17 @@ def main():
     
     if "selected_models" not in st.session_state:
         st.session_state.selected_models = list(MODELS.keys())
+        
+    if "question_to_ask" not in st.session_state:
+        st.session_state.question_to_ask = None
+    
+    # Process any question from shortcut button
+    if st.session_state.question_to_ask:
+        question = st.session_state.question_to_ask
+        st.session_state.question_to_ask = None  # Reset after processing
+        
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": question})
     
     # Display title and description
     st.title("🧠XLLM: Understanding Large Language Model Explanations")
@@ -198,7 +234,6 @@ def main():
     Enjoy your explorations to the models!
     """)
     
-    
     # Initialize resources
     try:
         db = init_db()
@@ -209,38 +244,102 @@ def main():
         st.error(f"Failed to initialize resources: {str(e)}")
         return
     
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Create a centered container for the chat
+    left_col, center_col, right_col = st.columns([1, 2, 1])
     
-    # Chat input
-    if prompt := st.chat_input("Ask about model internal mechanisms..."):
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    with center_col:
+        # Display chat history in centered column
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        # Process the last message if it's from the user and hasn't been responded to
+        if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+            user_query = st.session_state.messages[-1]["content"]
+            
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    try:
+                        response, updated_models = generate_response(
+                            user_query, 
+                            llm, 
+                            cursor, 
+                            embedding_model, 
+                            st.session_state.selected_models,
+                            st.session_state.messages[:-1]
+                        )
+                        st.markdown(response)
+                        
+                        # Update selected models if changed by the response
+                        st.session_state.selected_models = updated_models
+                            
+                        # Add assistant response to chat history
+                        st.session_state.messages.append({"role": "assistant", "content": response})
+                    except Exception as e:
+                        st.error(f"Error generating response: {str(e)}")
+                        st.session_state.messages.append({"role": "assistant", "content": "Sorry, I encountered an error while processing your question."})
         
-        # Generate and display response
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response, updated_models = generate_response(
-                    prompt, 
-                    llm, 
-                    cursor, 
-                    embedding_model, 
-                    st.session_state.selected_models,
-                    st.session_state.messages[:-1]  # Exclude the just-added user message
-                )
-                st.markdown(response)
-                
-        # Update selected models if changed by the response
-        st.session_state.selected_models = updated_models
-                
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        # Chat input in the centered column
+        if prompt := st.chat_input("Ask about model internal mechanisms..."):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.rerun()  # Rerun to show the user message and generate response
+    
+    # Add a divider
+    st.markdown("---")
+    
+    # Add shortcut buttons section below the chat input
+    st.subheader("Try these example questions:")
+    
+    # Create columns for buttons to arrange them in a row
+    # We're using 5 columns - empty space on sides for better alignment
+    col1, col2, col3, col4, col5 = st.columns([0.5, 1, 1, 1, 0.5])
+    
+    # Add first three buttons in first row
+    with col2:
+        st.button("🌍 Geography Concepts", 
+                 key="geo_btn", 
+                 help="Ask about how models understand geography",
+                 on_click=process_shortcut, 
+                 args=(PRESET_QUESTIONS[0],),
+                 use_container_width=True)
+    
+    with col3:
+        st.button("😊 Emotional Processing", 
+                 key="emotion_btn", 
+                 help="Compare how models process emotions",
+                 on_click=process_shortcut, 
+                 args=(PRESET_QUESTIONS[1],),
+                 use_container_width=True)
+    
+    with col4:
+        st.button("🔢 Numerical Understanding", 
+                 key="num_btn", 
+                 help="Explore numerical processing in models",
+                 on_click=process_shortcut, 
+                 args=(PRESET_QUESTIONS[2],),
+                 use_container_width=True)
+    
+    # Create second row of buttons
+    col1, col2, col3, col4, col5 = st.columns([0.5, 1, 1, 1, 0.5])
+    
+    with col2:
+        st.button("🧠 Abstract Concepts", 
+                 key="abstract_btn", 
+                 help="Explore how models handle abstract ideas",
+                 on_click=process_shortcut, 
+                 args=(PRESET_QUESTIONS[3],),
+                 use_container_width=True)
+    
+    with col3:
+        st.button("📝 Language Syntax", 
+                 key="syntax_btn", 
+                 help="Compare syntax understanding across models",
+                 on_click=process_shortcut, 
+                 args=(PRESET_QUESTIONS[4],),
+                 use_container_width=True)
 
 if __name__ == "__main__":
     main()
